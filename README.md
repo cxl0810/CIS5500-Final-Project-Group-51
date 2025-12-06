@@ -5,12 +5,14 @@ All frontend, backend, and data-processing code required for the project is incl
 
 ## Backup Setup
 ```bash
-cd backend-folder(server.js)
+cd server.js
 npm install express cors pg
 node server.js
 ```
 
 ## Fronted Setup (open another terminal to do that)
+```bash
 cd client
 npm install
 npm start
+```
