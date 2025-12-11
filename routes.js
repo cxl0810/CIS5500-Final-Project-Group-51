@@ -136,66 +136,43 @@ LIMIT 30;
 // Route 3: GET /shelter
 const shelter = async function(req, res) {
   const query = `
-    WITH shelter_state AS (
-      SELECT *
-      FROM Shelters s
-      JOIN states st ON s.state = st.state_abbrev
-    ),
-    shelter_tracts AS (
-      SELECT
-        s.org_id,
-        t.tract_id
-      FROM Tracts t
-      JOIN shelter_state s ON s.state_name = t.state
-    ),
-    shelter_census AS (
-      SELECT
-        st.org_id,
-        d.total_pop,
-        d.men,
-        d.women,
-        d.hispanic,
-        d.white,
-        d.black,
-        d.asian,
-        d.pacific,
-        e.income,
-        e.income_per_cap,
-        e.poverty,
-        e.child_poverty,
-        e.employed,
-        e.unemployment,
-        e.mean_commute
-      FROM shelter_tracts st
-      JOIN Demographics d ON d.tract_id = st.tract_id
-      JOIN EconomicsHousing e ON e.tract_id = st.tract_id
-    ),
-    gold_shelters AS (
-      -- Shelters with NO dogs behind on shots
-      SELECT s.org_id
-      FROM Shelters s
-      WHERE NOT EXISTS (
+    WITH gold_shelters AS (
+    SELECT s.org_id
+    FROM Shelters s
+    WHERE NOT EXISTS (
         SELECT 1
         FROM Dogs d
         JOIN DogAttributes da ON d.dog_id = da.dog_id
         WHERE d.org_id = s.org_id
           AND da.shots_current = FALSE
-      )
     )
+),
+state_metrics AS (
     SELECT
-      sc.org_id,
-      sh.city,
-      sh.state,
-      AVG(income) AS avg_income,
-      AVG(unemployment) AS avg_unemployment,
-      AVG(poverty) AS avg_poverty_rate,
-      AVG(mean_commute) AS avg_commute_time,
-      AVG(income_per_cap) AS avg_income_per_capita
-    FROM shelter_census sc
-    JOIN gold_shelters gs ON sc.org_id = gs.org_id
-    JOIN Shelters sh ON sc.org_id = sh.org_id
-    GROUP BY sc.org_id, sh.city, sh.state
-    ORDER BY avg_income DESC;
+        t.state AS state_full_name,
+        AVG(e.income) AS avg_income,
+        AVG(e.unemployment) AS avg_unemployment,
+        AVG(e.poverty) AS avg_poverty,
+        AVG(e.mean_commute) AS avg_commute,
+        AVG(e.income_per_cap) AS avg_income_per_capita
+    FROM Tracts t
+    JOIN EconomicsHousing e ON t.tract_id = e.tract_id
+    GROUP BY t.state
+)
+SELECT
+    s.org_id,
+    s.city,
+    s.state,
+    sm.avg_income,
+    sm.avg_unemployment,
+    sm.avg_poverty AS avg_poverty_rate,
+    sm.avg_commute AS avg_commute_time,
+    sm.avg_income_per_capita
+FROM Shelters s
+JOIN gold_shelters gs ON s.org_id = gs.org_id
+JOIN States st ON s.state = st.state_abbrev
+JOIN state_metrics sm ON st.state_name = sm.state_full_name
+ORDER BY sm.avg_income DESC;
   `;
 
   connection.query(query, (err, data) => {
@@ -260,53 +237,55 @@ const supply_income = async function(req, res) {
 // Route 5: GET /over-represented
 const over_represented = async function(req, res) {
   const query = `
-    WITH dogs_by_state AS (
-      SELECT
+WITH dogs_by_state AS (
+    SELECT
         sh.state,
         COUNT(*) AS total_dogs_in_state
-      FROM Dogs d
-      JOIN Shelters sh ON sh.org_id = d.org_id
-      GROUP BY sh.state
-    ),
-    breed_state_counts AS (
-      SELECT
+    FROM Dogs d
+    JOIN Shelters sh ON sh.org_id = d.org_id
+    GROUP BY sh.state
+),
+breed_state_counts AS (
+    SELECT
         db.breed_primary,
         sh.state,
         COUNT(*) AS breed_count_in_state
-      FROM DogBreeds db
-      JOIN Dogs d ON d.dog_id = db.dog_id
-      JOIN Shelters sh ON sh.org_id = d.org_id
-      WHERE db.breed_primary IS NOT NULL
-      GROUP BY db.breed_primary, sh.state
-    ),
-    breed_state_share AS (
-      SELECT
-        bsc.breed_primary,
-        bsc.state,
-        bsc.breed_count_in_state,
-        dbs.total_dogs_in_state,
-        bsc.breed_count_in_state::float / dbs.total_dogs_in_state AS breed_share
-      FROM breed_state_counts bsc
-      JOIN dogs_by_state dbs ON dbs.state = bsc.state
-    ),
-    ranked AS (
-      SELECT
-        *,
-        ROW_NUMBER() OVER (
-          PARTITION BY breed_primary
-          ORDER BY breed_share DESC
-        ) AS rn
-      FROM breed_state_share
-    )
+    FROM DogBreeds db
+    JOIN Dogs d      ON d.dog_id = db.dog_id
+    JOIN Shelters sh ON sh.org_id = d.org_id
+    WHERE db.breed_primary IS NOT NULL
+    GROUP BY db.breed_primary, sh.state
+)
+SELECT
+    bsc.breed_primary,
+    bsc.state,
+    bsc.breed_count_in_state,
+    dbs.total_dogs_in_state,
+    (bsc.breed_count_in_state::float / dbs.total_dogs_in_state) AS breed_share
+FROM breed_state_counts bsc
+JOIN dogs_by_state dbs ON dbs.state = bsc.state;
+WITH ranked AS (
     SELECT
-      r.breed_primary,
-      r.state,
-      r.breed_count_in_state,
-      r.total_dogs_in_state,
-      ROUND(r.breed_share::numeric, 4) AS breed_share
-    FROM ranked r
-    WHERE rn <= 5
-    ORDER BY r.breed_primary, r.breed_share DESC;
+        breed_primary,
+        state,
+        breed_count_in_state,
+        total_dogs_in_state,
+        breed_share,
+        ROW_NUMBER() OVER (
+            PARTITION BY breed_primary
+            ORDER BY breed_share DESC
+        ) AS rn
+    FROM mv_breed_state_share
+)
+SELECT
+    breed_primary,
+    state,
+    breed_count_in_state,
+    total_dogs_in_state,
+    ROUND(breed_share::numeric, 4) AS breed_share
+FROM ranked
+WHERE rn <= 5
+ORDER BY breed_primary, breed_share DESC;
   `;
 
   connection.query(query, (err, data) => {
@@ -356,8 +335,13 @@ const user_preferred = async function user_preferred(req, res) {
   ];
 
   const query = `
-    WITH ScoredDogs AS (
-      SELECT
+    WITH FriendlyDogs AS (
+    SELECT dog_id, description
+    FROM DogDescriptions
+    WHERE to_tsvector('english', description) @@ plainto_tsquery('english', 'friendly')
+),
+ScoredDogs AS (
+    SELECT
         d.dog_id,
         d.name,
         d.age,
@@ -369,32 +353,27 @@ const user_preferred = async function user_preferred(req, res) {
         da.house_trained,
         da.shots_current,
         db.breed_primary,
-        dd.description,
-
+        fd.description,
         (
-          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
-          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
-          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
-          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
-          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
-          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
-          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
+            CASE WHEN da.color_primary = :pref_color                 THEN 1 ELSE 0 END +
+            CASE WHEN d.size           = :pref_size                  THEN 1 ELSE 0 END +
+            CASE WHEN db.breed_primary = :pref_breed                 THEN 1 ELSE 0 END +
+            CASE WHEN d.age            = :pref_age                   THEN 1 ELSE 0 END +
+            CASE WHEN d.sex            = :pref_sex                   THEN 1 ELSE 0 END +
+            CASE WHEN da.fixed         = :pref_fixed::boolean        THEN 1 ELSE 0 END +
+            CASE WHEN da.house_trained = :pref_house_trained::boolean THEN 1 ELSE 0 END +
+            CASE WHEN da.coat          = :pref_coat                  THEN 1 ELSE 0 END +
+            CASE WHEN da.shots_current = :pref_shots_current::boolean THEN 1 ELSE 0 END
         ) AS match_score
-
-      FROM Dogs d
-      JOIN DogAttributes da ON d.dog_id = da.dog_id
-      JOIN DogBreeds db ON d.dog_id = db.dog_id
-      JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
-    )
-
-    SELECT *
-    FROM ScoredDogs
-    WHERE description ILIKE '%friendly%'
-    ORDER BY match_score DESC,
-             dog_id ASC
-    LIMIT 10;
+    FROM FriendlyDogs fd
+    JOIN Dogs d           ON d.dog_id = fd.dog_id
+    JOIN DogAttributes da ON d.dog_id = da.dog_id
+    JOIN DogBreeds db     ON d.dog_id = db.dog_id
+)
+SELECT *
+FROM ScoredDogs
+ORDER BY match_score DESC
+LIMIT 10;
   `;
 
   connection.query(query, params, (err, data) => {
