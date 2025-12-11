@@ -317,7 +317,7 @@ const over_represented = async function(req, res) {
   });
 };
 
-// Route 6: GET /user-preferred (PRE-OPTIMIZATION / SLOW VERSION)
+// Route 6: GET /user-preferred
 const user_preferred = async function user_preferred(req, res) {
   const {
     pref_color,
@@ -404,6 +404,16 @@ const income_recommend = async function(req, res) {
     return res.status(400).json({ error: "Invalid or missing 'income' query parameter" });
   }
 
+  const MAX_STATE_AVG_INCOME = 85000;
+  if (userIncome > MAX_STATE_AVG_INCOME) {
+    userIncome = MAX_STATE_AVG_INCOME;
+  }
+
+  const MIN_STATE_AVG_INCOME = 30000;
+  if (userIncome < MIN_STATE_AVG_INCOME) {
+    userIncome = MIN_STATE_AVG_INCOME;
+  }
+
   const query = `
     WITH StateSocio AS (
       SELECT
@@ -430,7 +440,7 @@ const income_recommend = async function(req, res) {
       AVG(ss.avg_income)                AS avg_income_for_breed
     FROM DogByState dbs
     JOIN StateSocio ss ON dbs.state_name = ss.state
-    WHERE ss.avg_income BETWEEN $1 - 15000 AND $1 + 15000
+    WHERE ss.avg_income BETWEEN $1 - 20000 AND $1 + 20000
     GROUP BY dbs.breed_primary
     ORDER BY total_adoptions DESC
     LIMIT 10;
