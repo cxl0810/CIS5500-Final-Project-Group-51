@@ -89,9 +89,20 @@ const recommend_breeds = async function(req, res) {
         SELECT 
             bt.breed, 
             cs.county,
-            (0.4 * (1 - bt.pct_special_needs) + 
-             0.3 * bt.pct_fixed + 
-             0.3 * (1 - bt.pct_long_coat)) AS suitability_score
+            (
+              -- Base Score (General Goodness)
+              0.3 * bt.pct_fixed + 
+              
+              -- INTERACTION 1: High Income boosts ability to handle Special Needs
+              -- If income is high, the penalty for special needs is reduced (or score boosted)
+              (bt.pct_special_needs * (cs.avg_income / 70000)) +
+              
+              -- INTERACTION 2: Long Commute penalizes Long Coats (Time poor = no grooming)
+              -- We subtract points if coat is long AND commute is long
+              (0.5 * (1 - bt.pct_long_coat)) - 
+              (bt.pct_long_coat * (cs.avg_commute / 60))
+              
+            ) AS suitability_score
         FROM breed_traits bt
         CROSS JOIN county_stats cs 
     )
