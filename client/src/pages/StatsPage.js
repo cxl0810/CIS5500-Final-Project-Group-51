@@ -1,3 +1,4 @@
+import config from '../config.json';
 import React, { useEffect, useState } from 'react';
 import { 
   Container, Typography, Grid, Paper, Table, TableBody, TableCell, 
@@ -13,12 +14,12 @@ export default function StatsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // Route 4: Supply vs Income
-        const res4 = await axios.get('http://localhost:8080/supply_income');
+        // ✅ Route 4: Supply vs Income (Fixed localhost)
+        const res4 = await axios.get(`https://${config.server_host}/supply_income`);
         setSupplyStats(res4.data); 
 
-        // Route 3: Shelter Economics
-        const res3 = await axios.get('http://localhost:8080/shelter');
+        // ✅ Route 3: Shelter Economics (Fixed localhost)
+        const res3 = await axios.get(`https://${config.server_host}/shelter`);
         setShelterStats(res3.data.slice(0, 15)); 
 
         setLoading(false);
@@ -41,14 +42,14 @@ export default function StatsPage() {
 
   return (
     <Container sx={{ mt: 5, mb: 10 }}>
-      {}
+      {/* Title */}
       <Typography variant="h3" gutterBottom sx={{ fontWeight: 'bold', textAlign: 'center', mb: 1 }}>
         Adoption Trends & Analytics
       </Typography>
 
       <Grid container spacing={4}>
         
-        {}
+        {/* Left Column: Supply vs Income */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3, height: '100%', overflow: 'hidden' }}>
             <Box sx={{ mb: 2 }}>
@@ -85,7 +86,7 @@ export default function StatsPage() {
           </Paper>
         </Grid>
 
-        {}
+        {/* Right Column: Shelter Economics */}
         <Grid item xs={12} md={6}>
           <Paper elevation={3} sx={{ p: 3, height: '100%', overflow: 'hidden' }}>
             <Box sx={{ mb: 2 }}>
