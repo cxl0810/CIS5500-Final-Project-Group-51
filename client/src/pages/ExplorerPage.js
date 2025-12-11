@@ -1,4 +1,4 @@
-import config from '../config.json';
+import config from '../config';
 import React, { useState } from 'react';
 import { 
   Container, TextField, Button, Typography, Grid, Card, CardContent, 
