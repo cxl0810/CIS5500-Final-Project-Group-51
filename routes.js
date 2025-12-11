@@ -388,16 +388,20 @@ LIMIT 10;
 // Route 7: GET /income-recommend
 const income_recommend = async function(req, res) {
   
-  const userIncome = parseFloat(req.query.income);
+  // 1. Initialize with 'let' so we can change it
+  let userIncome = parseFloat(req.query.income);
+
+  // 2. Safety Check: If it's not a number, default to a safe value or error
   if (isNaN(userIncome)) {
     return res.status(400).json({ error: "Invalid or missing 'income' query parameter" });
   }
 
+  // 3. Clamp the values (The Logic Fix)
   const MAX_STATE_AVG_INCOME = 85000;
   if (userIncome > MAX_STATE_AVG_INCOME) {
     userIncome = MAX_STATE_AVG_INCOME;
   }
-
+  
   const MIN_STATE_AVG_INCOME = 30000;
   if (userIncome < MIN_STATE_AVG_INCOME) {
     userIncome = MIN_STATE_AVG_INCOME;
@@ -435,17 +439,17 @@ const income_recommend = async function(req, res) {
     LIMIT 10;
   `;
 
+  // 4. Pass the 'userIncome' safely
   connection.query(query, [userIncome], (err, data) => {
-    if (err) {
-      console.error(err);
-      res.json({});
+    if (err || !data) {
+      console.error("Database Error:", err);
+      res.json([]);
     } else {
       const result = data.rows.map(row => ({
         breed_primary: row.breed_primary,
         total_adoptions: row.total_adoptions,
         avg_income_for_breed: parseFloat(row.avg_income_for_breed)
       }));
-
       res.json(result);
     }
   });
