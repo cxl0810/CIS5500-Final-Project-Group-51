@@ -66,51 +66,61 @@ const recommend_breeds = async function(req, res) {
 
   connection.query(`
     WITH county_stats AS (
-        SELECT 
-            t.county,
-            AVG(e.income) AS avg_income, 
-            AVG(e.poverty) AS avg_poverty, 
-            AVG(e.mean_commute) AS avg_commute
-        FROM Tracts t
-        JOIN EconomicsHousing e ON t.tract_id = e.tract_id
-        GROUP BY t.county
-    ),
-    breed_traits AS (
-        SELECT 
-            b.breed_primary AS breed,
-            AVG(CASE WHEN a.coat = 'Long' THEN 1 ELSE 0 END) AS pct_long_coat,
-            AVG(CASE WHEN a.fixed THEN 1 ELSE 0 END) AS pct_fixed,
-            AVG(CASE WHEN a.special_needs THEN 1 ELSE 0 END) AS pct_special_needs
-        FROM DogBreeds b
-        JOIN DogAttributes a ON b.dog_id = a.dog_id
-        GROUP BY b.breed_primary
-    ),
-    score AS (
-        SELECT 
-            bt.breed, 
-            cs.county,
-            (
-              -- Base Score (General Goodness)
-              0.3 * bt.pct_fixed + 
-              
-              -- INTERACTION 1: High Income boosts ability to handle Special Needs
-              -- If income is high, the penalty for special needs is reduced (or score boosted)
-              (bt.pct_special_needs * (cs.avg_income / 70000)) +
-              
-              -- INTERACTION 2: Long Commute penalizes Long Coats (Time poor = no grooming)
-              -- We subtract points if coat is long AND commute is long
-              (0.5 * (1 - bt.pct_long_coat)) - 
-              (bt.pct_long_coat * (cs.avg_commute / 60))
-              
-            ) AS suitability_score
-        FROM breed_traits bt
-        CROSS JOIN county_stats cs 
-    )
-    SELECT breed, county, suitability_score
-    FROM score
-    WHERE county = $1
-    ORDER BY suitability_score DESC
-    LIMIT 10;
+    SELECT
+        t.county,
+        AVG(e.income) AS avg_income,
+        AVG(e.poverty) AS avg_poverty,
+        AVG(e.mean_commute) AS avg_commute
+    FROM Tracts t
+    JOIN EconomicsHousing e ON t.tract_id = e.tract_id
+    GROUP BY t.county
+),
+normalized_county AS (
+    SELECT
+        county,
+        (avg_income - MIN(avg_income) OVER())
+            / NULLIF(MAX(avg_income) OVER() - MIN(avg_income) OVER(),0)
+            AS norm_income,
+        (avg_poverty - MIN(avg_poverty) OVER())
+            / NULLIF(MAX(avg_poverty) OVER() - MIN(avg_poverty) OVER(),0)
+            AS norm_poverty,
+        (avg_commute - MIN(avg_commute) OVER())
+            / NULLIF(MAX(avg_commute) OVER() - MIN(avg_commute) OVER(),0)
+            AS norm_commute
+    FROM county_stats
+),
+
+breed_traits AS (
+    SELECT
+        b.breed_primary AS breed,
+        AVG(CASE WHEN a.coat = 'Long' THEN 1 ELSE 0 END) AS pct_long_coat,
+        AVG(CASE WHEN a.fixed THEN 1 ELSE 0 END) AS pct_fixed,
+        AVG(CASE WHEN a.special_needs THEN 1 ELSE 0 END) AS pct_special_needs
+    FROM DogBreeds b
+    JOIN DogAttributes a ON b.dog_id = a.dog_id
+    GROUP BY b.breed_primary
+),
+
+score AS (
+    SELECT
+        bt.breed,
+        nc.county,
+        (
+            0.40 * (1 - bt.pct_special_needs) +
+            0.25 * bt.pct_fixed +
+            0.10 * (1 - bt.pct_long_coat) +
+            0.15 * nc.norm_income +
+            0.10 * (1 - nc.norm_poverty)
+        ) AS suitability_score
+    FROM breed_traits bt
+    CROSS JOIN normalized_county nc  
+)
+
+SELECT breed, county, suitability_score
+FROM score
+WHERE county = 'Aurora County'
+ORDER BY suitability_score DESC
+LIMIT 30;
   `, [county], (err, data) => {
     if (err) {
       console.log(err);
