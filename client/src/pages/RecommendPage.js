@@ -1,4 +1,4 @@
-const config = require('../config.json');
+import config from '../config.json';
 import React, { useState } from 'react';
 import { 
   Container, TextField, Button, Typography, Card, CardContent, 
@@ -68,7 +68,7 @@ export default function RecommendPage() {
       setResults([]);
       let res;
       
-      // ✅ We use https:// and the host from your config file
+      // ✅ 1. Smart Search (Fixed localhost)
       if (county) {
         res = await axios.get(`https://${config.server_host}/recommend_breeds`, { params: { county } });
       } else {
@@ -109,7 +109,8 @@ export default function RecommendPage() {
         pref_shots_current: prefShotsCurrent ? 'true' : undefined,
       };
 
-      const res = await axios.get(`http://localhost:8080/user_preferred`, { params });
+      // ✅ 2. User Preferred Search (Fixed localhost)
+      const res = await axios.get(`https://${config.server_host}/user_preferred`, { params });
       setResults(res.data);
     } catch (err) {
       console.error(err);
@@ -125,7 +126,9 @@ export default function RecommendPage() {
     try {
       setHasSearched(true);
       setResults([]);
-      const res = await axios.get(`http://localhost:8080/sample_dogs`, {
+      
+      // ✅ 3. Direct Search (Fixed localhost)
+      const res = await axios.get(`https://${config.server_host}/sample_dogs`, {
         params: {
           target_state_abbrev: targetState,
           chosen_breed: chosenBreed
@@ -147,10 +150,10 @@ export default function RecommendPage() {
         Choose between our socio-economic algorithm, custom filters, or direct search.
       </Typography>
 
-      {}
+      {/* Search Interface */}
       <Paper elevation={3} sx={{ p: 4, borderRadius: 3, mb: 5 }}>
         
-        {}
+        {/* Tabs */}
         <Tabs 
           value={tabIndex} 
           onChange={handleTabChange} 
@@ -171,11 +174,11 @@ export default function RecommendPage() {
         >
           <Tab label="Smart SocioEcon Match" />
           <Tab label="Custom Preferences" />
-          {}
+          {/* Direct Search Tab */}
           <Tab label="Direct Search (State & Breed)" />
         </Tabs>
 
-        {}
+        {/* Tab 0: Smart Search */}
         {tabIndex === 0 && (
           <Box>
             <Typography variant="body1" sx={{ mb: 3, fontStyle: 'italic', color: 'text.secondary', textAlign: 'center' }}>
@@ -212,7 +215,7 @@ export default function RecommendPage() {
           </Box>
         )}
 
-        {}
+        {/* Tab 1: Preferences */}
         {tabIndex === 1 && (
           <Box>
             {showNoFilterWarning && (
@@ -329,7 +332,7 @@ export default function RecommendPage() {
           </Box>
         )}
 
-        {}
+        {/* Tab 2: Direct Search */}
         {tabIndex === 2 && (
           <Box>
              <Alert severity="info" sx={{ mb: 3 }}>
@@ -362,7 +365,7 @@ export default function RecommendPage() {
         )}
       </Paper>
 
-      {}
+      {/* No Results Message */}
       {hasSearched && results.length === 0 && (
         <Box sx={{ display: 'flex', justifyContent: 'center', mt: 4 }}>
           <Alert severity="warning" sx={{ width: '100%', maxWidth: 600, fontSize: '1.1rem' }}>
@@ -371,17 +374,18 @@ export default function RecommendPage() {
         </Box>
       )}
 
+      {/* Results Grid */}
       <Grid container spacing={3}>
         {results.map((item, index) => (
           <Grid item xs={12} sm={6} md={4} key={index}>
             <Card elevation={4} sx={{ height: '100%', borderTop: '5px solid #1976d2', borderRadius: 2 }}>
               <CardContent>
                 <Typography variant="h5" sx={{ fontWeight: 'bold', mb: 1 }}>
-                  {}
+                  {/* Smart Name Display Logic */}
                   {item.name ? cleanDogName(item.name) : (item.dog_name ? cleanDogName(item.dog_name) : (item.breed || item.breed_primary))}
                 </Typography>
                 
-                {}
+                {/* 1. Suitability Score Display */}
                 {item.suitability_score && (
                   <>
                     <Chip 
@@ -404,7 +408,7 @@ export default function RecommendPage() {
                   </>
                 )}
 
-                {}
+                {/* 2. User Preference Score Display */}
                 {item.match_score !== undefined && (
                   <>
                     <Box sx={{ bgcolor: '#f5f5f5', p: 2, borderRadius: 2, fontSize: '0.9rem' }}>
@@ -418,8 +422,8 @@ export default function RecommendPage() {
                   </>
                 )}
 
-                {}
-                {}
+                {/* 3. Direct Search / Fallback Display */}
+                {/* Only show if not a scored result (avoids dupes) */}
                 {!item.suitability_score && item.match_score === undefined && (item.city || item.description) && (
                    <>
                       <Typography color="primary" gutterBottom>{item.breed_primary}</Typography>
@@ -432,7 +436,7 @@ export default function RecommendPage() {
                         </>
                       )}
                       <Typography variant="caption" display="block" sx={{ mt: 2, color: 'gray' }}>
-                         📍 {item.city}, {item.state}
+                          📍 {item.city}, {item.state}
                       </Typography>
                    </>
                 )}
