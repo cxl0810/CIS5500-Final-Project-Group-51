@@ -18,6 +18,10 @@ app.get('/city_breeds', routes.city_breeds);
 app.get('/sample_dogs', routes.sample_dogs);
 app.get('/dogs_by_city', routes.dogs_by_city);
 
+app.get('/', (req, res) => {
+  res.send('Welcome to the Dog Shelter API! Try visiting /shelter or /sample_dogs');
+});
+
 // Render requires this:
 const PORT = process.env.PORT || 8080;
 
