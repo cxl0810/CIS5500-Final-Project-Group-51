@@ -117,7 +117,7 @@ export default function StatsPage() {
                         ${Math.round(row.avg_income).toLocaleString()}
                       </TableCell>
                       <TableCell align="right">
-                        {(row.avg_poverty_rate * 100).toFixed(1)}%
+                        {Number(row.avg_poverty_rate).toFixed(1)}%
                       </TableCell>
                     </TableRow>
                   ))}
