@@ -464,10 +464,14 @@ export default function RecommendPage() {
     fullWidth 
     sx={{ mt: 0.5, textTransform: 'none', color: 'text.secondary' }}
     onClick={() => {
-      // 🔗 This constructs a dynamic URL to Google Maps
-      const location = `${item.city}, ${item.state}`;
-      window.open(`https://www.google.com/maps/search/?api=1&query=Animal+Shelter+in+${encodeURIComponent(location)}`, '_blank');
-    }}
+    // 🛡️ FIX: Check for 'breed_primary' OR 'breed'
+    const breedName = item.breed_primary || item.breed || "dog";
+    const color = item.color_primary || "";
+    
+    // Construct the query
+    const query = `${breedName} dog ${color}`;
+    window.open(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}`, '_blank');
+  }}
   >
     📍 View Shelter on Google Maps
   </Button>
