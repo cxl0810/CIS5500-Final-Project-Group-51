@@ -1,5 +1,4 @@
 const { Pool, types } = require('pg');
-const config = require('./config.json')
 types.setTypeParser(20, val => parseInt(val, 10));
 
 const connection = new Pool({
