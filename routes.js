@@ -3,15 +3,16 @@ const config = require('./config.json')
 types.setTypeParser(20, val => parseInt(val, 10));
 
 const connection = new Pool({
-  host: config.rds_host,
-  user: config.rds_user,
-  password: config.rds_password,
-  port: config.rds_port,
-  database: config.rds_db,
-  ssl: {
-    rejectUnauthorized: false,
-  },
+  host: process.env.RDS_HOST,
+  user: process.env.RDS_USER,
+  password: process.env.RDS_PASSWORD,
+  database: process.env.RDS_DB,
+  port: process.env.RDS_PORT || 5432,
+  ssl: { 
+    rejectUnauthorized: false 
+  }
 });
+
 connection.connect((err) => err && console.log(err));
 
 // Route 1: GET /top-breed-per-state
