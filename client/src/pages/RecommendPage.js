@@ -440,41 +440,41 @@ export default function RecommendPage() {
                       </Typography>
                    </>
                 )}
-{/* EXTRA CREDIT: External API Integration (Bing Search) */}
-<Divider sx={{ my: 1 }} />
-<Button 
-  variant="outlined" 
-  size="small" 
-  fullWidth 
-  sx={{ mt: 1, textTransform: 'none' }}
-  onClick={() => {
-    // 🔗 This constructs a dynamic URL to Bing Image Search
-    const query = `${item.breed_primary} dog ${item.color_primary || ''}`;
-    window.open(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}`, '_blank');
-  }}
->
-  🔍 See more {item.breed_primary}s on Bing
-</Button>
 
-{/* EXTRA CREDIT: External API Integration (Google Maps) */}
-{item.city && item.state && (
-  <Button 
-    variant="text" 
-    size="small" 
-    fullWidth 
-    sx={{ mt: 0.5, textTransform: 'none', color: 'text.secondary' }}
-    onClick={() => {
-  // 🛡️ FIX: Look for 'breed_primary' OR 'breed' (County search uses 'breed')
-  const breedName = item.breed_primary || item.breed || "dog";
-  const color = item.color_primary || "";
-  
-  const query = `${breedName} dog ${color}`;
-  window.open(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}`, '_blank');
-}}
-  >
-    📍 View Shelter on Google Maps
-  </Button>
-)}
+                {/* EXTRA CREDIT: External API Integration (Bing Search) */}
+                <Divider sx={{ my: 1 }} />
+                <Button 
+                  variant="outlined" 
+                  size="small" 
+                  fullWidth 
+                  sx={{ mt: 1, textTransform: 'none' }}
+                  onClick={() => {
+                    // ✅ FIX: Handle different variable names (County vs Income)
+                    const breedName = item.breed_primary || item.breed || "dog";
+                    const color = item.color_primary || "";
+                    const query = `${breedName} dog ${color}`;
+                    window.open(`https://www.bing.com/images/search?q=${encodeURIComponent(query)}`, '_blank');
+                  }}
+                >
+                  🔍 See photos on Bing
+                </Button>
+
+                {/* EXTRA CREDIT: External API Integration (Google Maps) */}
+                {item.city && item.state && (
+                  <Button 
+                    variant="text" 
+                    size="small" 
+                    fullWidth 
+                    sx={{ mt: 0.5, textTransform: 'none', color: 'text.secondary' }}
+                    onClick={() => {
+                      // ✅ FIX: Correct logic for Google Maps
+                      const location = `${item.city}, ${item.state}`;
+                      window.open(`http://maps.google.com/?q=${encodeURIComponent(location)}`, '_blank');
+                    }}
+                  >
+                    📍 View Shelter on Google Maps
+                  </Button>
+                )}
 
               </CardContent>
             </Card>
