@@ -1,3 +1,4 @@
+const config = require('../config.json');
 import React, { useState } from 'react';
 import { 
   Container, TextField, Button, Typography, Card, CardContent, 
@@ -66,11 +67,14 @@ export default function RecommendPage() {
       setHasSearched(true);
       setResults([]);
       let res;
+      
+      // ✅ We use https:// and the host from your config file
       if (county) {
-        res = await axios.get(`http://localhost:8080/recommend_breeds`, { params: { county } });
+        res = await axios.get(`https://${config.server_host}/recommend_breeds`, { params: { county } });
       } else {
-        res = await axios.get(`http://localhost:8080/income_recommend`, { params: { income } });
+        res = await axios.get(`https://${config.server_host}/income_recommend`, { params: { income } });
       }
+      
       setResults(res.data);
     } catch (err) {
       console.error(err);
