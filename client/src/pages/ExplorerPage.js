@@ -1,3 +1,4 @@
+import config from '../config.json';
 import React, { useState } from 'react';
 import { 
   Container, TextField, Button, Typography, Grid, Card, CardContent, 
@@ -52,7 +53,8 @@ export default function ExplorePage() {
     setOverRepStats([]);
 
     try {
-      const dogsRes = await axios.get(`http://localhost:8080/dogs_by_city`, { 
+      // ✅ 1. Dogs by City (Using Config)
+      const dogsRes = await axios.get(`https://${config.server_host}/dogs_by_city`, { 
         params: { city } 
       });
       setResults(dogsRes.data);
@@ -60,18 +62,23 @@ export default function ExplorePage() {
       if (dogsRes.data.length === 0) return;
 
       const currentState = dogsRes.data[0].state;
-      const cityTrendsRes = await axios.get(`http://localhost:8080/city_breeds`);
+
+      // ✅ 2. City Breeds Stats (Fixed localhost)
+      const cityTrendsRes = await axios.get(`https://${config.server_host}/city_breeds`);
       const matchedCityStat = cityTrendsRes.data.find(r => 
         r.city && r.city.toLowerCase() === city.toLowerCase()
       );
       if (matchedCityStat) setCityStats(matchedCityStat);
-      const stateTrendsRes = await axios.get(`http://localhost:8080/top_breed_per_state`);
+
+      // ✅ 3. Top Breed per State (Fixed localhost)
+      const stateTrendsRes = await axios.get(`https://${config.server_host}/top_breed_per_state`);
       const matchedStateStat = stateTrendsRes.data.find(r => 
         r.state === currentState
       );
       if (matchedStateStat) setStateStats(matchedStateStat);
 
-      const overRepRes = await axios.get(`http://localhost:8080/over_represented`);
+      // ✅ 4. Over Represented Breeds (Fixed localhost)
+      const overRepRes = await axios.get(`https://${config.server_host}/over_represented`);
       const stateOverRep = overRepRes.data.filter(r => r.state === currentState);
       setOverRepStats(stateOverRep);
 
@@ -87,7 +94,7 @@ export default function ExplorePage() {
         City Explorer
       </Typography>
       
-      {}
+      {/* Search Bar */}
       <Box sx={{ maxWidth: 600, mx: 'auto', mb: 5, display: 'flex', gap: 2 }}>
         <TextField 
           label="Enter City Name" 
@@ -102,7 +109,7 @@ export default function ExplorePage() {
         </Button>
       </Box>
 
-      {}
+      {/* Statistics Section */}
       {(cityStats || stateStats || overRepStats.length > 0) && (
         <Alert 
           severity="info" 
@@ -171,7 +178,7 @@ export default function ExplorePage() {
         </Alert>
       )}
 
-      {}
+      {/* Results Grid */}
       <Grid container spacing={3}>
         {results.map((dog) => (
           <Grid item xs={12} sm={6} md={4} key={dog.dog_id}>
