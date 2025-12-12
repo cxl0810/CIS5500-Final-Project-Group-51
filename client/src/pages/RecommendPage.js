@@ -389,7 +389,7 @@ export default function RecommendPage() {
                 {item.suitability_score && (
                   <>
                     <Chip 
-                      label={`${(Number(item.suitability_score) * 100).toFixed(0)}% Suitability Match`} 
+                      label={`${Number(item.suitability_score).toFixed(0)}% Suitability Match`}
                       color="success" sx={{ mb: 2, fontWeight: 'bold' }} 
                     />
                     {item.county && (
