@@ -14,11 +14,11 @@ export default function StatsPage() {
   useEffect(() => {
     const fetchData = async () => {
       try {
-        // ✅ Route 4: Supply vs Income (Fixed localhost)
+        // Route 4: Supply vs Income
         const res4 = await axios.get(`https://${config.server_host}/supply_income`);
         setSupplyStats(res4.data); 
 
-        // ✅ Route 3: Shelter Economics (Fixed localhost)
+        // Route 3: Shelter Economics
         const res3 = await axios.get(`https://${config.server_host}/shelter`);
         setShelterStats(res3.data.slice(0, 15)); 
 
