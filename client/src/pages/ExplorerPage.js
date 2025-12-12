@@ -53,7 +53,7 @@ export default function ExplorePage() {
     setOverRepStats([]);
 
     try {
-      // ✅ 1. Dogs by City (Using Config)
+      // 1. Dogs by City
       const dogsRes = await axios.get(`https://${config.server_host}/dogs_by_city`, { 
         params: { city } 
       });
@@ -63,21 +63,21 @@ export default function ExplorePage() {
 
       const currentState = dogsRes.data[0].state;
 
-      // ✅ 2. City Breeds Stats (Fixed localhost)
+      // 2. City Breeds Stats
       const cityTrendsRes = await axios.get(`https://${config.server_host}/city_breeds`);
       const matchedCityStat = cityTrendsRes.data.find(r => 
         r.city && r.city.toLowerCase() === city.toLowerCase()
       );
       if (matchedCityStat) setCityStats(matchedCityStat);
 
-      // ✅ 3. Top Breed per State (Fixed localhost)
+      // 3. Top Breed per State
       const stateTrendsRes = await axios.get(`https://${config.server_host}/top_breed_per_state`);
       const matchedStateStat = stateTrendsRes.data.find(r => 
         r.state === currentState
       );
       if (matchedStateStat) setStateStats(matchedStateStat);
 
-      // ✅ 4. Over Represented Breeds (Fixed localhost)
+      // 4. Over Represented Breeds (Fixed localhost)
       const overRepRes = await axios.get(`https://${config.server_host}/over_represented`);
       const stateOverRep = overRepRes.data.filter(r => r.state === currentState);
       setOverRepStats(stateOverRep);
