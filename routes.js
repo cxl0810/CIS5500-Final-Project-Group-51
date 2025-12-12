@@ -276,8 +276,13 @@ const user_preferred = async function(req, res) {
   ];
 
   const query = `
-    WITH ScoredDogs AS (
-      SELECT
+    WITH FriendlyDogs AS (
+    SELECT dog_id, description
+    FROM DogDescriptions
+    WHERE to_tsvector('english', description) @@ plainto_tsquery('english', 'friendly')
+),
+ScoredDogs AS (
+    SELECT
         d.dog_id,
         d.name,
         d.age,
@@ -289,31 +294,28 @@ const user_preferred = async function(req, res) {
         da.house_trained,
         da.shots_current,
         db.breed_primary,
-        dd.description,
-
+        fd.description,
         (
-          CASE WHEN $1 IS NULL OR da.color_primary = $1 THEN 1 ELSE 0 END +
-          CASE WHEN $2 IS NULL OR d.size = $2 THEN 1 ELSE 0 END +
-          CASE WHEN $3 IS NULL OR db.breed_primary = $3 THEN 1 ELSE 0 END +
-          CASE WHEN $4 IS NULL OR d.age = $4 THEN 1 ELSE 0 END +
-          CASE WHEN $5 IS NULL OR d.sex = $5 THEN 1 ELSE 0 END +
-          CASE WHEN $6 IS NULL OR da.fixed = $6 THEN 1 ELSE 0 END +
-          CASE WHEN $7 IS NULL OR da.house_trained = $7 THEN 1 ELSE 0 END +
-          CASE WHEN $8 IS NULL OR da.coat = $8 THEN 1 ELSE 0 END +
-          CASE WHEN $9 IS NULL OR da.shots_current = $9 THEN 1 ELSE 0 END
+          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
+          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
+          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
+          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
+          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
+          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
+          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
         ) AS match_score
 
-      FROM Dogs d
-      JOIN DogAttributes da ON d.dog_id = da.dog_id
-      JOIN DogBreeds db ON d.dog_id = db.dog_id
-      JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
-    )
-
-    SELECT *
-    FROM ScoredDogs
-    WHERE description ILIKE '%friendly%'
-    ORDER BY match_score DESC, dog_id ASC
-    LIMIT 10;
+    FROM FriendlyDogs fd
+    JOIN Dogs d           ON d.dog_id = fd.dog_id
+    JOIN DogAttributes da ON d.dog_id = da.dog_id
+    JOIN DogBreeds db     ON d.dog_id = db.dog_id
+)
+SELECT *
+FROM ScoredDogs
+ORDER BY match_score DESC
+LIMIT 10;
   `;
 
   connection.query(query, params, (err, data) => {
