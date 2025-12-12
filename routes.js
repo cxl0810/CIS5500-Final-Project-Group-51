@@ -17,7 +17,6 @@ connection.connect((err) => err && console.log(err));
 // Route 1: GET /top-breed-per-state
 const top_breed_per_state = async function(req, res) {
   const state = req.query.state || null;
-  // Build optional WHERE clause for selecting target state
   let whereClause = "";
   let params = [];
 
@@ -111,9 +110,6 @@ const recommend_breeds = async function(req, res) {
     }
   });
 }
-
-module.exports = { recommend_breeds };
-
 
 // Route 3: GET /shelter
 const shelter = async function(req, res) {
@@ -296,15 +292,15 @@ const user_preferred = async function(req, res) {
         dd.description,
 
         (
-          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
-          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
-          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
-          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
-          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
-          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
-          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
+          CASE WHEN $1 IS NULL OR da.color_primary = $1 THEN 1 ELSE 0 END +
+          CASE WHEN $2 IS NULL OR d.size = $2 THEN 1 ELSE 0 END +
+          CASE WHEN $3 IS NULL OR db.breed_primary = $3 THEN 1 ELSE 0 END +
+          CASE WHEN $4 IS NULL OR d.age = $4 THEN 1 ELSE 0 END +
+          CASE WHEN $5 IS NULL OR d.sex = $5 THEN 1 ELSE 0 END +
+          CASE WHEN $6 IS NULL OR da.fixed = $6 THEN 1 ELSE 0 END +
+          CASE WHEN $7 IS NULL OR da.house_trained = $7 THEN 1 ELSE 0 END +
+          CASE WHEN $8 IS NULL OR da.coat = $8 THEN 1 ELSE 0 END +
+          CASE WHEN $9 IS NULL OR da.shots_current = $9 THEN 1 ELSE 0 END
         ) AS match_score
 
       FROM Dogs d
@@ -321,10 +317,9 @@ const user_preferred = async function(req, res) {
   `;
 
   connection.query(query, params, (err, data) => {
-    // 🛡️ ERROR HANDLING: Prevents crash if query fails
     if (err || !data) {
       console.error("Route 6 Error:", err);
-      res.json([]); // Return empty array instead of crashing
+      res.json([]); 
     } else {
       res.json(data.rows);
     }
@@ -337,12 +332,12 @@ const income_recommend = async function(req, res) {
   // 1. Initialize with 'let' so we can change it
   let userIncome = parseFloat(req.query.income);
 
-  // 2. Safety Check: If it's not a number, default to a safe value or error
+  // 2. Safety Check
   if (isNaN(userIncome)) {
     return res.status(400).json({ error: "Invalid or missing 'income' query parameter" });
   }
 
-  // 3. Clamp the values (The Logic Fix)
+  // 3. Clamp the values
   const MAX_STATE_AVG_INCOME = 85000;
   if (userIncome > MAX_STATE_AVG_INCOME) {
     userIncome = MAX_STATE_AVG_INCOME;
@@ -385,7 +380,6 @@ const income_recommend = async function(req, res) {
     LIMIT 10;
   `;
 
-  // 4. Pass the 'userIncome' safely
   connection.query(query, [userIncome], (err, data) => {
     if (err || !data) {
       console.error("Database Error:", err);
@@ -426,8 +420,9 @@ const city_breeds = async function(req, res) {
 
 // Route 9: GET /sample-dogs
 const sample_dogs = async function(req, res) {
-  const targetState = req.query.target_state_abbrev || '';
-  const chosenBreed = req.query.chosen_breed || '';
+  // Add wildcards for partial matching
+  const targetState = req.query.target_state_abbrev ? `%${req.query.target_state_abbrev}%` : '%';
+  const chosenBreed = req.query.chosen_breed ? `%${req.query.chosen_breed}%` : '%';
 
   const query = `
     SELECT
@@ -538,4 +533,3 @@ module.exports = {
   sample_dogs,
   dogs_by_city
 }
-
