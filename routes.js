@@ -253,17 +253,22 @@ const over_represented = async function(req, res) {
 
 
 // Route 6: GET /user-preferred
-const user_preferred = async function(req, res) {
+// Route 6: GET /user-preferred (PRE-OPTIMIZATION / SLOW VERSION)
+const user_preferred = async function user_preferred(req, res) {
   const {
-    pref_color, pref_size, pref_breed, pref_age, pref_sex,
-    pref_coat, pref_fixed, pref_house_trained, pref_shots_current
+    pref_color,
+    pref_size,
+    pref_breed,
+    pref_age,
+    pref_sex,
+    pref_coat,
+    pref_fixed,
+    pref_house_trained,
+    pref_shots_current
   } = req.query;
-
-  // Convert "true"/"false" strings to actual booleans or null
-  const fixedBool = pref_fixed === 'true' ? true : null;
-  const houseBool = pref_house_trained === 'true' ? true : null;
-  const shotsBool = pref_shots_current === 'true' ? true : null;
-
+  const fixedBool = pref_fixed === "true" ? true : null;
+  const houseBool = pref_house_trained === "true" ? true : null;
+  const shotsBool = pref_shots_current === "true" ? true : null;
   const params = [
     pref_color || null,
     pref_size || null,
@@ -293,40 +298,37 @@ const user_preferred = async function(req, res) {
         dd.description,
 
         (
-          -- Scoring Logic
-          CASE WHEN $1 IS NULL OR da.color_primary = $1 THEN 1 ELSE 0 END +
-          CASE WHEN $2 IS NULL OR d.size = $2 THEN 1 ELSE 0 END +
-          CASE WHEN $3 IS NULL OR db.breed_primary ILIKE $3 THEN 1 ELSE 0 END + -- Added ILIKE for better matching
-          CASE WHEN $4 IS NULL OR d.age = $4 THEN 1 ELSE 0 END +
-          CASE WHEN $5 IS NULL OR d.sex = $5 THEN 1 ELSE 0 END +
-          CASE WHEN $6 IS NULL OR da.fixed = $6 THEN 1 ELSE 0 END +
-          CASE WHEN $7 IS NULL OR da.house_trained = $7 THEN 1 ELSE 0 END +
-          CASE WHEN $8 IS NULL OR da.coat = $8 THEN 1 ELSE 0 END +
-          CASE WHEN $9 IS NULL OR da.shots_current = $9 THEN 1 ELSE 0 END
+          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
+          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
+          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
+          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
+          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
+          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
+          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
         ) AS match_score
 
       FROM Dogs d
-      -- ✅ FIX: Use LEFT JOIN so we don't lose dogs that are missing some attributes
-      LEFT JOIN DogAttributes da ON d.dog_id = da.dog_id
+      JOIN DogAttributes da ON d.dog_id = da.dog_id
       JOIN DogBreeds db ON d.dog_id = db.dog_id
-      LEFT JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
+      JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
     )
 
     SELECT *
     FROM ScoredDogs
-    -- ✅ FIX: Removed "WHERE description ILIKE '%friendly%'"
-    -- We now just return the highest scoring matches regardless of description
-    ORDER BY match_score DESC, dog_id ASC
+    WHERE description ILIKE '%friendly%'
+    ORDER BY match_score DESC,
+             dog_id ASC
     LIMIT 10;
   `;
 
   connection.query(query, params, (err, data) => {
-    if (err || !data) {
-      console.error("Route 6 Error:", err);
-      res.json([]); 
-    } else {
-      res.json(data.rows);
+    if (err) {
+      console.error("SQL ERROR:", err);
+      return res.json([]);
     }
+    res.json(data.rows);
   });
 };
 
