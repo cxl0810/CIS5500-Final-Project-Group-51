@@ -218,75 +218,42 @@ const supply_income = async function(req, res) {
 
 // Route 5: GET /over-represented
 const over_represented = async function(req, res) {
+
   const query = `
-WITH dogs_by_state AS (
-    SELECT
-        sh.state,
-        COUNT(*) AS total_dogs_in_state
-    FROM Dogs d
-    JOIN Shelters sh ON sh.org_id = d.org_id
-    GROUP BY sh.state
-),
-breed_state_counts AS (
-    SELECT
-        db.breed_primary,
-        sh.state,
-        COUNT(*) AS breed_count_in_state
-    FROM DogBreeds db
-    JOIN Dogs d      ON d.dog_id = db.dog_id
-    JOIN Shelters sh ON sh.org_id = d.org_id
-    WHERE db.breed_primary IS NOT NULL
-    GROUP BY db.breed_primary, sh.state
-)
-SELECT
-    bsc.breed_primary,
-    bsc.state,
-    bsc.breed_count_in_state,
-    dbs.total_dogs_in_state,
-    (bsc.breed_count_in_state::float / dbs.total_dogs_in_state) AS breed_share
-FROM breed_state_counts bsc
-JOIN dogs_by_state dbs ON dbs.state = bsc.state;
-WITH ranked AS (
+    WITH ranked AS (
+        SELECT
+            breed_primary,
+            state,
+            breed_count_in_state,
+            total_dogs_in_state,
+            breed_share,
+            ROW_NUMBER() OVER (
+                PARTITION BY breed_primary
+                ORDER BY breed_share DESC
+            ) AS rn
+        FROM mv_breed_state_share
+    )
     SELECT
         breed_primary,
         state,
         breed_count_in_state,
         total_dogs_in_state,
-        breed_share,
-        ROW_NUMBER() OVER (
-            PARTITION BY breed_primary
-            ORDER BY breed_share DESC
-        ) AS rn
-    FROM mv_breed_state_share
-)
-SELECT
-    breed_primary,
-    state,
-    breed_count_in_state,
-    total_dogs_in_state,
-    ROUND(breed_share::numeric, 4) AS breed_share
-FROM ranked
-WHERE rn <= 5
-ORDER BY breed_primary, breed_share DESC;
+        ROUND(breed_share::numeric, 4) AS breed_share
+    FROM ranked
+    WHERE rn <= 5
+    ORDER BY breed_primary, breed_share DESC;
   `;
 
   connection.query(query, (err, data) => {
     if (err) {
       console.log(err);
-      res.json({});
+      res.json([]);
     } else {
-      const result = data.rows.map(row => ({
-        breed_primary: row.breed_primary,
-        state: row.state,
-        breed_count_in_state: row.breed_count_in_state,
-        total_dogs_in_state: row.total_dogs_in_state,
-        breed_share: row.breed_share
-      }));
-
-      res.json(result);
+      res.json(data.rows);
     }
   });
 };
+
 
 // Route 6: GET /user-preferred
 const user_preferred = async function(req, res) {
