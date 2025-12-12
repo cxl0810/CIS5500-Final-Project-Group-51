@@ -10,7 +10,7 @@ import axios from 'axios';
 function cleanDogName(name) {
   if (!name) return "Unknown Name";
   let cleaned = String(name).trim();
-  cleaned = cleaned.replace(/&quot;/g, '"');
+  cleaned = cleaned.replace(/"/g, '"');
   cleaned = cleaned.replace(/^\\+/, '').trim();
   const csvMatch = cleaned.match(/^"?(?:\\)?([^",]+)"?,/);
   if (csvMatch && csvMatch[1]) cleaned = csvMatch[1].trim();
@@ -459,22 +459,7 @@ export default function RecommendPage() {
                   🔍 See photos on Bing
                 </Button>
 
-                {/* EXTRA CREDIT: External API Integration (Google Maps) */}
-                {item.city && item.state && (
-                  <Button 
-                    variant="text" 
-                    size="small" 
-                    fullWidth 
-                    sx={{ mt: 0.5, textTransform: 'none', color: 'text.secondary' }}
-                    onClick={() => {
-                      // ✅ FIX: Correct logic for Google Maps
-                      const location = `${item.city}, ${item.state}`;
-                      window.open(`http://maps.google.com/?q=${encodeURIComponent(location)}`, '_blank');
-                    }}
-                  >
-                    📍 View Shelter on Google Maps
-                  </Button>
-                )}
+                {/* ❌ REMOVED: Google Maps Integration */}
 
               </CardContent>
             </Card>
