@@ -118,7 +118,7 @@ score AS (
 
 SELECT breed, county, suitability_score
 FROM score
-WHERE county = 'Aurora County'
+WHERE county = $1
 ORDER BY suitability_score DESC
 LIMIT 30;
   `, [county], (err, data) => {
