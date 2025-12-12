@@ -318,21 +318,18 @@ ORDER BY breed_primary, breed_share DESC;
 };
 
 // Route 6: GET /user-preferred
-const user_preferred = async function user_preferred(req, res) {
+// Route 6: GET /user-preferred
+const user_preferred = async function(req, res) {
   const {
-    pref_color,
-    pref_size,
-    pref_breed,
-    pref_age,
-    pref_sex,
-    pref_coat,
-    pref_fixed,
-    pref_house_trained,
-    pref_shots_current
+    pref_color, pref_size, pref_breed, pref_age, pref_sex,
+    pref_coat, pref_fixed, pref_house_trained, pref_shots_current
   } = req.query;
-  const fixedBool = pref_fixed === "true" ? true : null;
-  const houseBool = pref_house_trained === "true" ? true : null;
-  const shotsBool = pref_shots_current === "true" ? true : null;
+
+  // Convert "true"/"false" strings to actual booleans or null
+  const fixedBool = pref_fixed === 'true' ? true : null;
+  const houseBool = pref_house_trained === 'true' ? true : null;
+  const shotsBool = pref_shots_current === 'true' ? true : null;
+
   const params = [
     pref_color || null,
     pref_size || null,
@@ -346,13 +343,8 @@ const user_preferred = async function user_preferred(req, res) {
   ];
 
   const query = `
-    WITH FriendlyDogs AS (
-    SELECT dog_id, description
-    FROM DogDescriptions
-    WHERE to_tsvector('english', description) @@ plainto_tsquery('english', 'friendly')
-),
-ScoredDogs AS (
-    SELECT
+    WITH ScoredDogs AS (
+      SELECT
         d.dog_id,
         d.name,
         d.age,
@@ -364,35 +356,41 @@ ScoredDogs AS (
         da.house_trained,
         da.shots_current,
         db.breed_primary,
-        fd.description,
+        dd.description,
+
         (
-            CASE WHEN da.color_primary = :pref_color                 THEN 1 ELSE 0 END +
-            CASE WHEN d.size           = :pref_size                  THEN 1 ELSE 0 END +
-            CASE WHEN db.breed_primary = :pref_breed                 THEN 1 ELSE 0 END +
-            CASE WHEN d.age            = :pref_age                   THEN 1 ELSE 0 END +
-            CASE WHEN d.sex            = :pref_sex                   THEN 1 ELSE 0 END +
-            CASE WHEN da.fixed         = :pref_fixed::boolean        THEN 1 ELSE 0 END +
-            CASE WHEN da.house_trained = :pref_house_trained::boolean THEN 1 ELSE 0 END +
-            CASE WHEN da.coat          = :pref_coat                  THEN 1 ELSE 0 END +
-            CASE WHEN da.shots_current = :pref_shots_current::boolean THEN 1 ELSE 0 END
+          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
+          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
+          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
+          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
+          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
+          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
+          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
+          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
         ) AS match_score
-    FROM FriendlyDogs fd
-    JOIN Dogs d           ON d.dog_id = fd.dog_id
-    JOIN DogAttributes da ON d.dog_id = da.dog_id
-    JOIN DogBreeds db     ON d.dog_id = db.dog_id
-)
-SELECT *
-FROM ScoredDogs
-ORDER BY match_score DESC
-LIMIT 10;
+
+      FROM Dogs d
+      JOIN DogAttributes da ON d.dog_id = da.dog_id
+      JOIN DogBreeds db ON d.dog_id = db.dog_id
+      JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
+    )
+
+    SELECT *
+    FROM ScoredDogs
+    WHERE description ILIKE '%friendly%'
+    ORDER BY match_score DESC, dog_id ASC
+    LIMIT 10;
   `;
 
   connection.query(query, params, (err, data) => {
-    if (err) {
-      console.error("SQL ERROR:", err);
-      return res.json([]);
+    // 🛡️ ERROR HANDLING: Prevents crash if query fails
+    if (err || !data) {
+      console.error("Route 6 Error:", err);
+      res.json([]); // Return empty array instead of crashing
+    } else {
+      res.json(data.rows);
     }
-    res.json(data.rows);
   });
 };
 
