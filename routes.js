@@ -95,7 +95,8 @@ const recommend_breeds = async function(req, res) {
     SELECT
         breed,
         county,
-        LEAST(100, ROUND((POWER(raw_score::numeric, 6) * 100), 1)) AS match_score
+        -- ✅ FIX: Rename to 'suitability_score' so frontend uses the correct layout
+        LEAST(100, ROUND((POWER(raw_score::numeric, 6) * 100), 1)) AS suitability_score
     FROM score_calc
     ORDER BY raw_score DESC
     LIMIT 30;
@@ -276,13 +277,8 @@ const user_preferred = async function(req, res) {
   ];
 
   const query = `
-    WITH FriendlyDogs AS (
-    SELECT dog_id, description
-    FROM DogDescriptions
-    WHERE to_tsvector('english', description) @@ plainto_tsquery('english', 'friendly')
-),
-ScoredDogs AS (
-    SELECT
+    WITH ScoredDogs AS (
+      SELECT
         d.dog_id,
         d.name,
         d.age,
@@ -294,28 +290,34 @@ ScoredDogs AS (
         da.house_trained,
         da.shots_current,
         db.breed_primary,
-        fd.description,
+        dd.description,
+
         (
-          CASE WHEN $1::text IS NULL OR da.color_primary = $1::text THEN 1 ELSE 0 END +
-          CASE WHEN $2::text IS NULL OR d.size = $2::text THEN 1 ELSE 0 END +
-          CASE WHEN $3::text IS NULL OR db.breed_primary = $3::text THEN 1 ELSE 0 END +
-          CASE WHEN $4::text IS NULL OR d.age = $4::text THEN 1 ELSE 0 END +
-          CASE WHEN $5::text IS NULL OR d.sex = $5::text THEN 1 ELSE 0 END +
-          CASE WHEN $6::boolean IS NULL OR da.fixed = $6::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $7::boolean IS NULL OR da.house_trained = $7::boolean THEN 1 ELSE 0 END +
-          CASE WHEN $8::text IS NULL OR da.coat = $8::text THEN 1 ELSE 0 END +
-          CASE WHEN $9::boolean IS NULL OR da.shots_current = $9::boolean THEN 1 ELSE 0 END
+          -- Scoring Logic
+          CASE WHEN $1 IS NULL OR da.color_primary = $1 THEN 1 ELSE 0 END +
+          CASE WHEN $2 IS NULL OR d.size = $2 THEN 1 ELSE 0 END +
+          CASE WHEN $3 IS NULL OR db.breed_primary ILIKE $3 THEN 1 ELSE 0 END + -- Added ILIKE for better matching
+          CASE WHEN $4 IS NULL OR d.age = $4 THEN 1 ELSE 0 END +
+          CASE WHEN $5 IS NULL OR d.sex = $5 THEN 1 ELSE 0 END +
+          CASE WHEN $6 IS NULL OR da.fixed = $6 THEN 1 ELSE 0 END +
+          CASE WHEN $7 IS NULL OR da.house_trained = $7 THEN 1 ELSE 0 END +
+          CASE WHEN $8 IS NULL OR da.coat = $8 THEN 1 ELSE 0 END +
+          CASE WHEN $9 IS NULL OR da.shots_current = $9 THEN 1 ELSE 0 END
         ) AS match_score
 
-    FROM FriendlyDogs fd
-    JOIN Dogs d           ON d.dog_id = fd.dog_id
-    JOIN DogAttributes da ON d.dog_id = da.dog_id
-    JOIN DogBreeds db     ON d.dog_id = db.dog_id
-)
-SELECT *
-FROM ScoredDogs
-ORDER BY match_score DESC
-LIMIT 10;
+      FROM Dogs d
+      -- ✅ FIX: Use LEFT JOIN so we don't lose dogs that are missing some attributes
+      LEFT JOIN DogAttributes da ON d.dog_id = da.dog_id
+      JOIN DogBreeds db ON d.dog_id = db.dog_id
+      LEFT JOIN DogDescriptions dd ON d.dog_id = dd.dog_id
+    )
+
+    SELECT *
+    FROM ScoredDogs
+    -- ✅ FIX: Removed "WHERE description ILIKE '%friendly%'"
+    -- We now just return the highest scoring matches regardless of description
+    ORDER BY match_score DESC, dog_id ASC
+    LIMIT 10;
   `;
 
   connection.query(query, params, (err, data) => {
