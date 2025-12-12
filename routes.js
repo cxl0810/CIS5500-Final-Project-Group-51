@@ -95,7 +95,6 @@ const recommend_breeds = async function(req, res) {
     SELECT
         breed,
         county,
-        -- ✅ FIX: Rename to 'suitability_score' so frontend uses the correct layout
         LEAST(100, ROUND((POWER(raw_score::numeric, 6) * 100), 1)) AS suitability_score
     FROM score_calc
     ORDER BY raw_score DESC
@@ -253,7 +252,6 @@ const over_represented = async function(req, res) {
 
 
 // Route 6: GET /user-preferred
-// Route 6: GET /user-preferred (PRE-OPTIMIZATION / SLOW VERSION)
 const user_preferred = async function user_preferred(req, res) {
   const {
     pref_color,
@@ -335,15 +333,12 @@ const user_preferred = async function user_preferred(req, res) {
 // Route 7: GET /income-recommend
 const income_recommend = async function(req, res) {
   
-  // 1. Initialize with 'let' so we can change it
   let userIncome = parseFloat(req.query.income);
 
-  // 2. Safety Check
   if (isNaN(userIncome)) {
     return res.status(400).json({ error: "Invalid or missing 'income' query parameter" });
   }
 
-  // 3. Clamp the values
   const MAX_STATE_AVG_INCOME = 85000;
   if (userIncome > MAX_STATE_AVG_INCOME) {
     userIncome = MAX_STATE_AVG_INCOME;
@@ -401,6 +396,7 @@ const income_recommend = async function(req, res) {
   });
 };
 
+
 // Route 8: GET /city-breeds
 const city_breeds = async function(req, res) {
   connection.query(`
@@ -424,9 +420,10 @@ const city_breeds = async function(req, res) {
   });
 }
 
+
 // Route 9: GET /sample-dogs
 const sample_dogs = async function(req, res) {
-  // Add wildcards for partial matching
+
   const targetState = req.query.target_state_abbrev ? `%${req.query.target_state_abbrev}%` : '%';
   const chosenBreed = req.query.chosen_breed ? `%${req.query.chosen_breed}%` : '%';
 
@@ -480,6 +477,7 @@ const sample_dogs = async function(req, res) {
     }
   });
 };
+
 
 // Route 10: GET /dogs-by-city
 const dogs_by_city = async function(req, res) {
