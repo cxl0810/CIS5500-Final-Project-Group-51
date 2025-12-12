@@ -449,7 +449,7 @@ export default function RecommendPage() {
                   fullWidth 
                   sx={{ mt: 1, textTransform: 'none' }}
                   onClick={() => {
-                    // ✅ FIX: Handle different variable names (County vs Income)
+
                     const breedName = item.breed_primary || item.breed || "dog";
                     const color = item.color_primary || "";
                     const query = `${breedName} dog ${color}`;
@@ -458,8 +458,6 @@ export default function RecommendPage() {
                 >
                   🔍 See photos on Bing
                 </Button>
-
-                {/* ❌ REMOVED: Google Maps Integration */}
 
               </CardContent>
             </Card>
