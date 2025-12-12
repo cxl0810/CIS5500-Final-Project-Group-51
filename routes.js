@@ -64,84 +64,55 @@ const recommend_breeds = async function(req, res) {
       return res.status(400).send("Missing required query parameter: county");
   }
 
-  connection.query(`
-SELECT
-    b.breed_primary AS breed,
-    AVG(CASE WHEN a.coat = 'Long' THEN 1.0 ELSE 0.0 END) AS pct_long_coat,
-    AVG(CASE WHEN a.fixed THEN 1.0 ELSE 0.0 END) AS pct_fixed,
-    AVG(CASE WHEN a.special_needs THEN 1.0 ELSE 0.0 END) AS pct_special_needs,
-    COUNT(*) AS popularity_count 
-FROM DogBreeds b
-JOIN DogAttributes a ON b.dog_id = a.dog_id
-GROUP BY b.breed_primary;
-
-WITH raw_stats AS (
+  const query = `
+    WITH target_county_input AS (
+        SELECT $1::text AS county
+    ),
+    target_county_stats AS (
+        SELECT
+            mcn.county,
+            mcn.norm_income,
+            mcn.norm_poverty
+        FROM mv_county_norms mcn
+        JOIN target_county_input tci
+          ON LOWER(mcn.county) = LOWER(tci.county)
+    ),
+    score_calc AS (
+        SELECT
+            bt.breed,
+            tc.county,
+            bt.popularity_count,
+            (
+                0.40 * (1 - COALESCE(bt.pct_special_needs, 0)) +
+                0.25 * COALESCE(bt.pct_fixed, 0) +
+                0.10 * (1 - COALESCE(bt.pct_long_coat, 0)) +
+                0.15 * COALESCE(tc.norm_income, 0) +
+                0.10 * (1 - COALESCE(tc.norm_poverty, 0)) +
+                (0.0001 * LEAST(bt.popularity_count, 500))
+            ) AS raw_score
+        FROM mv_breed_traits bt
+        CROSS JOIN target_county_stats tc
+    )
     SELECT
-        t.county,
-        AVG(e.income) AS avg_income,
-        AVG(e.poverty) AS avg_poverty
-    FROM Tracts t
-    JOIN EconomicsHousing e ON t.tract_id = e.tract_id
-    GROUP BY t.county
-)
-SELECT
-    county,
-    COALESCE(
-        (avg_income - MIN(avg_income) OVER()) / NULLIF(MAX(avg_income) OVER() - MIN(avg_income) OVER(), 0),
-        0
-    ) AS norm_income,
-    COALESCE(
-        (avg_poverty - MIN(avg_poverty) OVER()) / NULLIF(MAX(avg_poverty) OVER() - MIN(avg_poverty) OVER(), 0),
-        0
-    ) AS norm_poverty
-FROM raw_stats;
+        breed,
+        county,
+        LEAST(100, ROUND((POWER(raw_score::numeric, 6) * 100), 1)) AS match_score
+    FROM score_calc
+    ORDER BY raw_score DESC
+    LIMIT 30;
+  `;
 
-WITH target_county_input AS (
-    SELECT :user_county AS county
-),
-target_county_stats AS (
-    SELECT
-        mcn.county,
-        mcn.norm_income,
-        mcn.norm_poverty
-    FROM mv_county_norms mcn
-    JOIN target_county_input tci
-      ON LOWER(mcn.county) = LOWER(tci.county)
-),
-score_calc AS (
-    SELECT
-        bt.breed,
-        tc.county,
-        bt.popularity_count,
-        (
-            0.40 * (1 - COALESCE(bt.pct_special_needs, 0)) +
-            0.25 * COALESCE(bt.pct_fixed, 0) +
-            0.10 * (1 - COALESCE(bt.pct_long_coat, 0)) +
-            0.15 * COALESCE(tc.norm_income, 0) +
-            0.10 * (1 - COALESCE(tc.norm_poverty, 0)) +
-            (0.0001 * LEAST(bt.popularity_count, 500))
-        ) AS raw_score
-    FROM mv_breed_traits bt
-    CROSS JOIN target_county_stats tc
-)
-SELECT
-    breed,
-    county,
-    LEAST(100, ROUND((POWER(raw_score::numeric, 6) * 100), 1)) AS match_score
-FROM score_calc
-ORDER BY raw_score DESC
-LIMIT 30;
-
-  `, [county], (err, data) => {
+  connection.query(query, [county], (err, data) => {
     if (err) {
       console.log(err);
-      res.json([]);
+      res.status(500).json({ error: "Database error" });
     } else {
       res.json(data.rows);
     }
   });
 }
 
+module.exports = { recommend_breeds };
 
 
 // Route 3: GET /shelter
@@ -317,7 +288,6 @@ ORDER BY breed_primary, breed_share DESC;
   });
 };
 
-// Route 6: GET /user-preferred
 // Route 6: GET /user-preferred
 const user_preferred = async function(req, res) {
   const {
@@ -501,6 +471,7 @@ const sample_dogs = async function(req, res) {
       d.size,
       s.city,
       s.state,
+      db.breed_primary,
       da.fixed,
       da.house_trained,
       da.env_children,
@@ -517,9 +488,9 @@ const sample_dogs = async function(req, res) {
   `;
 
   connection.query(query, [targetState, chosenBreed], (err, data) => {
-    if (err) {
+    if (err || !data) {
       console.error(err);
-      res.json({});
+      res.json([]);
     } else {
       const result = data.rows.map(row => ({
         dog_id: row.dog_id,
@@ -529,6 +500,7 @@ const sample_dogs = async function(req, res) {
         size: row.size,
         city: row.city,
         state: row.state,
+        breed_primary: row.breed_primary, 
         fixed: row.fixed,
         house_trained: row.house_trained,
         env_children: row.env_children,
