@@ -68,7 +68,7 @@ export default function RecommendPage() {
       setResults([]);
       let res;
       
-      // ✅ 1. Smart Search (Fixed localhost)
+      // ✅ 1. Smart Search
       if (county) {
         res = await axios.get(`https://${config.server_host}/recommend_breeds`, { params: { county } });
       } else {
@@ -109,7 +109,7 @@ export default function RecommendPage() {
         pref_shots_current: prefShotsCurrent ? 'true' : undefined,
       };
 
-      // ✅ 2. User Preferred Search (Fixed localhost)
+      // ✅ 2. User Preferred Search
       const res = await axios.get(`https://${config.server_host}/user_preferred`, { params });
       setResults(res.data);
     } catch (err) {
@@ -127,7 +127,7 @@ export default function RecommendPage() {
       setHasSearched(true);
       setResults([]);
       
-      // ✅ 3. Direct Search (Fixed localhost)
+      // ✅ 3. Direct Search
       const res = await axios.get(`https://${config.server_host}/sample_dogs`, {
         params: {
           target_state_abbrev: targetState,
